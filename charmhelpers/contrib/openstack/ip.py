@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import subprocess
+
 from charmhelpers.core.hookenv import (
     config,
     unit_get,
@@ -158,7 +160,7 @@ def resolve_address(endpoint_type=PUBLIC, override=True):
                     if is_address_in_network(bound_cidr, vip):
                         resolved_address = vip
                         break
-            except NotImplementedError:
+            except (NotImplementedError, subprocess.CalledProcessError):
                 # If no net-splits configured and no support for extra
                 # bindings/network spaces so we expect a single vip
                 resolved_address = vips[0]
@@ -175,7 +177,7 @@ def resolve_address(endpoint_type=PUBLIC, override=True):
             #       configuration is not in use
             try:
                 resolved_address = network_get_primary_address(binding)
-            except NotImplementedError:
+            except (NotImplementedError, subprocess.CalledProcessError):
                 resolved_address = fallback_addr
 
     if resolved_address is None:
