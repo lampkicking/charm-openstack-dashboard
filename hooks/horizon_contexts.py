@@ -31,9 +31,6 @@ from charmhelpers.contrib.openstack.context import (
     HAProxyContext,
     context_complete
 )
-from charmhelpers.contrib.openstack.ip import (
-    resolve_address,
-)
 from charmhelpers.contrib.openstack.utils import (
     git_default_repos,
     git_pip_venv_dir,
@@ -138,8 +135,9 @@ class IdentityServiceContext(OSContextGenerator):
                 # If using keystone v3 the context is incomplete without the
                 # admin domain id
                 if local_ctxt['api_version'] == '3':
-                    local_ctxt['admin_domain_id'] = rdata.get(
-                        'admin_domain_id')
+                    if not config('default_domain'):
+                        local_ctxt['admin_domain_id'] = rdata.get(
+                            'admin_domain_id')
                 if not context_complete(local_ctxt):
                     continue
 
@@ -201,6 +199,8 @@ class HorizonContext(OSContextGenerator):
             "password_retrieve": config("password-retrieve"),
             'virtualenv': git_pip_venv_dir(projects_yaml)
             if config('openstack-origin-git') else None,
+            'default_domain': config('default-domain'),
+            'multi_domain': False if config('default-domain') else True
         }
 
         return ctxt
@@ -211,13 +211,14 @@ class ApacheContext(OSContextGenerator):
         ''' Grab cert and key from configuraton for SSL config '''
         ctxt = {
             'http_port': 70,
-            'https_port': 433
+            'https_port': 433,
+            'enforce_ssl': False
         }
 
         if config('enforce-ssl'):
             # NOTE(dosaboy): if ssl is not configured we shouldn't allow this
             if all(get_cert()):
-                ctxt['ssl_addr'] = resolve_address()
+                ctxt['enforce_ssl'] = True
             else:
                 log("Enforce ssl redirect requested but ssl not configured - "
                     "skipping redirect", level=WARNING)

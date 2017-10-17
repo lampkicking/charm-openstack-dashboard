@@ -28,11 +28,13 @@ TO_PATCH = [
     'get_os_codename_install_source',
     'apt_update',
     'apt_upgrade',
+    'apt_install',
     'configure_installation_source',
     'log',
     'cmp_pkgrevno',
     'os_release',
     'os_application_version_set',
+    'reset_os_release',
 ]
 
 openstack_origin_git = \
@@ -78,7 +80,9 @@ class TestHorizohorizon_utils(CharmTestCase):
         horizon_utils.enable_ssl()
         _call.assert_has_calls([
             call(['a2ensite', 'default-ssl']),
-            call(['a2enmod', 'ssl'])
+            call(['a2enmod', 'ssl']),
+            call(['a2enmod', 'rewrite']),
+            call(['a2enmod', 'headers'])
         ])
 
     def test_restart_map(self):
@@ -108,12 +112,14 @@ class TestHorizohorizon_utils(CharmTestCase):
              'keystonev3_policy.json',
              ['apache2', 'memcached']),
         ])
-        self.assertEquals(horizon_utils.restart_map(), ex_map)
+        self.assertEqual(horizon_utils.restart_map(), ex_map)
 
-    def test_do_openstack_upgrade(self):
+    @patch.object(horizon_utils, 'determine_packages')
+    def test_do_openstack_upgrade(self, determine_packages):
         self.config.return_value = 'cloud:precise-havana'
         self.get_os_codename_install_source.return_value = 'havana'
         configs = MagicMock()
+        determine_packages.return_value = ['testpkg']
         horizon_utils.do_openstack_upgrade(configs)
         configs.set_release.assert_called_with(openstack_release='havana')
         self.assertTrue(self.log.called)
@@ -124,6 +130,8 @@ class TestHorizohorizon_utils(CharmTestCase):
         ]
         self.apt_upgrade.assert_called_with(options=dpkg_opts,
                                             dist=True, fatal=True)
+        self.apt_install.assert_called_with(['testpkg'], fatal=True)
+        self.reset_os_release.assert_called()
         self.configure_installation_source.assert_called_with(
             'cloud:precise-havana'
         )
@@ -238,7 +246,7 @@ class TestHorizohorizon_utils(CharmTestCase):
             call('/var/lib/openstack-dashboard', owner='horizon',
                  group='horizon', perms=0700, force=False),
         ]
-        self.assertEquals(mkdir.call_args_list, expected)
+        self.assertEqual(mkdir.call_args_list, expected)
 
     @patch.object(horizon_utils, 'git_src_dir')
     @patch.object(horizon_utils, 'service_restart')
@@ -346,7 +354,7 @@ class TestHorizohorizon_utils(CharmTestCase):
         expected = [
             call('apache2'),
         ]
-        self.assertEquals(service_restart.call_args_list, expected)
+        self.assertEqual(service_restart.call_args_list, expected)
 
     def test_assess_status(self):
         with patch.object(horizon_utils, 'assess_status_func') as asf:

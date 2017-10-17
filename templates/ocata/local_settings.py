@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import os
 
 from django.utils.translation import ugettext_lazy as _
@@ -26,7 +28,6 @@ WEBROOT = '/'
 # Do not set it to '/home/', as this will cause circular redirect loop
 #LOGIN_REDIRECT_URL = WEBROOT
 
-# Required for Django 1.5.
 # If horizon is running in production (DEBUG is False), set this
 # with the list of host/domain names that the application can serve.
 # For more information see:
@@ -34,12 +35,10 @@ WEBROOT = '/'
 #ALLOWED_HOSTS = ['horizon.example.com', ]
 
 # Set SSL proxy settings:
-# For Django 1.4+ pass this header from the proxy after terminating the SSL,
+# Pass this header from the proxy after terminating the SSL,
 # and don't forget to strip it from the client's request.
 # For more information see:
-# https://docs.djangoproject.com/en/1.4/ref/settings/#secure-proxy-ssl-header
-#SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTOCOL', 'https')
-# https://docs.djangoproject.com/en/1.5/ref/settings/#secure-proxy-ssl-header
+# https://docs.djangoproject.com/en/dev/ref/settings/#secure-proxy-ssl-header
 #SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # If Horizon is being served through SSL, then uncomment the following two
@@ -52,30 +51,53 @@ SESSION_COOKIE_SECURE = True
 {% endif %}
 
 
+# The absolute path to the directory where message files are collected.
+# The message file must have a .json file extension. When the user logins to
+# horizon, the message files collected are processed and displayed to the user.
+#MESSAGES_PATH=None
+
 # Overrides for OpenStack API versions. Use this setting to force the
 # OpenStack dashboard to use a specific API version for a given service API.
 # Versions specified here should be integers or floats, not strings.
 # NOTE: The version should be formatted as it appears in the URL for the
 # service API. For example, The identity service APIs have inconsistent
 # use of the decimal point, so valid options would be 2.0 or 3.
+# Minimum compute version to get the instance locked status is 2.9.
 #OPENSTACK_API_VERSIONS = {
 #    "data-processing": 1.1,
 #    "identity": 3,
 #    "volume": 2,
+#    "compute": 2,
 #}
 
-# Set this to True if running on multi-domain model. When this is enabled, it
-# will require user to enter the Domain name in addition to username for login.
+# Set this to True if running on a multi-domain model. When this is enabled, it
+# will require the user to enter the Domain name in addition to the username
+# for login.
 #OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT = False
 
 # Overrides the default domain used when running on single-domain model
 # with Keystone V3. All entities will be created in the default domain.
-#OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = 'Default'
+# NOTE: This value must be the ID of the default domain, NOT the name.
+# Also, you will most likely have a value in the keystone policy file like this
+#    "cloud_admin": "rule:admin_required and domain_id:<your domain id>"
+# This value must match the domain id specified there.
+#OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = 'default'
+
+# Set this to True to enable panels that provide the ability for users to
+# manage Identity Providers (IdPs) and establish a set of rules to map
+# federation protocol attributes to Identity API attributes.
+# This extension requires v3.0+ of the Identity API.
+#OPENSTACK_KEYSTONE_FEDERATION_MANAGEMENT = False
 
 # Set Console type:
 # valid options are "AUTO"(default), "VNC", "SPICE", "RDP", "SERIAL" or None
 # Set to None explicitly if you want to deactivate the console.
 #CONSOLE_TYPE = "AUTO"
+
+# If provided, a "Report Bug" link will be displayed in the site header
+# which links to the value of this setting (ideally a URL containing
+# information on how to report issues).
+#HORIZON_CONFIG["bug_url"] = "http://bug-report.example.com"
 
 # Show backdrop element outside the modal, do not close the modal
 # after clicking on backdrop.
@@ -99,8 +121,6 @@ SESSION_COOKIE_SECURE = True
 # including on the login form.
 #HORIZON_CONFIG["disable_password_reveal"] = False
 
-HORIZON_CONFIG["customization_module"] = "{{ customization_module }}"
-
 LOCAL_PATH = os.path.dirname(os.path.abspath(__file__))
 
 # Set custom secret key:
@@ -112,19 +132,37 @@ LOCAL_PATH = os.path.dirname(os.path.abspath(__file__))
 # (usually behind a load-balancer). Either you have to make sure that a session
 # gets all requests routed to the same dashboard instance or you set the same
 # SECRET_KEY for all of them.
-# SECRET_KEY = secret_key.generate_or_read_from_file('/var/lib/openstack-dashboard/secret_key')
 SECRET_KEY = "{{ secret }}"
 
 # We recommend you use memcached for development; otherwise after every reload
 # of the django development server, you will have to login again. To use
 # memcached set CACHES to something like
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
         'LOCATION': '127.0.0.1:11211',
+    },
+}
+{% if database_host -%}
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+DATABASES = {
+    'default': {
+        # Database configuration here
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': '{{ database }}',
+        'USER': '{{ database_user }}',
+        'PASSWORD': '{{ database_password }}',
+        'HOST': '{{ database_host }}',
+        'default-character-set': 'utf8'
     }
 }
-
+{% else -%}
+{% if api_version == "3" -%}
+# Warning: Please add DB relation for Keystone v3 + HA deployments
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+{% endif -%}
+{% endif -%}
 #CACHES = {
 #    'default': {
 #        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
@@ -156,23 +194,50 @@ AVAILABLE_REGIONS = [
 {% endif -%}
 
 OPENSTACK_HOST = "{{ service_host }}"
-OPENSTACK_KEYSTONE_URL = "{{ service_protocol }}://%s:{{ service_port }}/v2.0" % OPENSTACK_HOST
 OPENSTACK_KEYSTONE_DEFAULT_ROLE = "{{ default_role }}"
+{% if api_version == "3" -%}
+OPENSTACK_KEYSTONE_URL = "{{ service_protocol }}://%s:{{ service_port }}/v3" % OPENSTACK_HOST
+OPENSTACK_API_VERSIONS = { "identity": 3, }
+OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT = "{{ multi_domain }}"
+OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = "{{ default_domain or admin_domain_id }}"
+{% else -%}
+OPENSTACK_KEYSTONE_URL = "{{ service_protocol }}://%s:{{ service_port }}/v2.0" % OPENSTACK_HOST
+{% endif -%}
+
+
 # Enables keystone web single-sign-on if set to True.
 #WEBSSO_ENABLED = False
 
 # Determines which authentication choice to show as default.
 #WEBSSO_INITIAL_CHOICE = "credentials"
 
-# The list of authentication mechanisms
-# which include keystone federation protocols.
-# Current supported protocol IDs are 'saml2' and 'oidc'
-# which represent SAML 2.0, OpenID Connect respectively.
+# The list of authentication mechanisms which include keystone
+# federation protocols and identity provider/federation protocol
+# mapping keys (WEBSSO_IDP_MAPPING). Current supported protocol
+# IDs are 'saml2' and 'oidc'  which represent SAML 2.0, OpenID
+# Connect respectively.
 # Do not remove the mandatory credentials mechanism.
+# Note: The last two tuples are sample mapping keys to a identity provider
+# and federation protocol combination (WEBSSO_IDP_MAPPING).
 #WEBSSO_CHOICES = (
 #    ("credentials", _("Keystone Credentials")),
 #    ("oidc", _("OpenID Connect")),
-#    ("saml2", _("Security Assertion Markup Language")))
+#    ("saml2", _("Security Assertion Markup Language")),
+#    ("acme_oidc", "ACME - OpenID Connect"),
+#    ("acme_saml2", "ACME - SAML2"),
+#)
+
+# A dictionary of specific identity provider and federation protocol
+# combinations. From the selected authentication mechanism, the value
+# will be looked up as keys in the dictionary. If a match is found,
+# it will redirect the user to a identity provider and federation protocol
+# specific WebSSO endpoint in keystone, otherwise it will use the value
+# as the protocol_id when redirecting to the WebSSO by protocol endpoint.
+# NOTE: The value is expected to be a tuple formatted as: (<idp_id>, <protocol_id>).
+#WEBSSO_IDP_MAPPING = {
+#    "acme_oidc": ("acme", "oidc"),
+#    "acme_saml2": ("acme", "saml2"),
+#}
 
 # Disable SSL certificate checks (useful for self-signed certificates):
 #OPENSTACK_SSL_NO_VERIFY = True
@@ -216,6 +281,17 @@ OPENSTACK_ENABLE_PASSWORD_RETRIEVE = True
 #LAUNCH_INSTANCE_LEGACY_ENABLED = True
 #LAUNCH_INSTANCE_NG_ENABLED = False
 
+# A dictionary of settings which can be used to provide the default values for
+# properties found in the Launch Instance modal.
+#LAUNCH_INSTANCE_DEFAULTS = {
+#    'config_drive': False,
+#    'enable_scheduler_hints': True
+#    'disable_image': False,
+#    'disable_instance_snapshot': False,
+#    'disable_volume': False,
+#    'disable_volume_snapshot': False,
+#}
+
 # The Xen Hypervisor has the ability to set the mount point for volumes
 # attached to instances (other Hypervisors currently do not). Setting
 # can_set_mount_point to True will add the option to set the mount point
@@ -224,6 +300,7 @@ OPENSTACK_HYPERVISOR_FEATURES = {
     'can_set_mount_point': False,
     'can_set_password': False,
     'requires_keypair': False,
+    'enable_quotas': True
 }
 
 # The OPENSTACK_CINDER_FEATURES settings can be used to enable optional
@@ -245,6 +322,13 @@ OPENSTACK_NEUTRON_NETWORK = {
     'enable_firewall': {{ neutron_network_firewall }},
     'enable_vpn': {{ neutron_network_vpn }},
     'enable_fip_topology_check': True,
+
+    # Default dns servers you would like to use when a subnet is
+    # created.  This is only a default, users can still choose a different
+    # list of dns servers when creating a new subnet.
+    # The entries below are examples only, and are not appropriate for
+    # real deployments
+    # 'default_dns_nameservers': ["8.8.8.8", "8.8.4.4", "208.67.222.222"],
 
     # Neutron can be configured with a default Subnet Pool to be used for IPv4
     # subnet-allocation. Specify the label you wish to display in the Address
@@ -270,15 +354,37 @@ OPENSTACK_NEUTRON_NETWORK = {
 
     # Set which provider network types are supported. Only the network types
     # in this list will be available to choose from when creating a network.
-    # Network types include local, flat, vlan, gre, and vxlan.
+    # Network types include local, flat, vlan, gre, vxlan and geneve.
     'supported_provider_types': ['*'],
+
+    # You can configure available segmentation ID range per network type
+    # in your deployment.
+    # 'segmentation_id_range': {
+    #     'vlan': [1024, 2048],
+    #     'vxlan': [4094, 65536],
+    # },
+
+    # You can define additional provider network types here.
+    # 'extra_provider_types': {
+    #     'awesome_type': {
+    #         'display_name': 'Awesome New Type',
+    #         'require_physical_network': False,
+    #         'require_segmentation_id': True,
+    #     }
+    # },
 
     # Set which VNIC types are supported for port binding. Only the VNIC
     # types in this list will be available to choose from when creating a
     # port.
     # VNIC types include 'normal', 'macvtap' and 'direct'.
     # Set to empty list or None to disable VNIC type selection.
-    'supported_vnic_types': ['*']
+    'supported_vnic_types': ['*'],
+}
+
+# The OPENSTACK_HEAT_STACK settings can be used to disable password
+# field required while launching the stack.
+OPENSTACK_HEAT_STACK = {
+    'enable_user_pass': True,
 }
 
 # The OPENSTACK_IMAGE_BACKEND settings can be used to customize features
@@ -296,9 +402,9 @@ OPENSTACK_NEUTRON_NETWORK = {
 #        ('qcow2', _('QCOW2 - QEMU Emulator')),
 #        ('raw', _('Raw')),
 #        ('vdi', _('VDI - Virtual Disk Image')),
-#        ('vhd', ('VHD - Virtual Hard Disk')),
+#        ('vhd', _('VHD - Virtual Hard Disk')),
 #        ('vmdk', _('VMDK - Virtual Machine Disk')),
-#    ]
+#    ],
 #}
 
 # The IMAGE_CUSTOM_PROPERTY_TITLES settings is used to customize the titles for
@@ -317,6 +423,12 @@ IMAGE_CUSTOM_PROPERTY_TITLES = {
 # table.
 IMAGE_RESERVED_CUSTOM_PROPERTIES = []
 
+# Set to 'legacy' or 'direct' to allow users to upload images to glance via
+# Horizon server. When enabled, a file form field will appear on the create
+# image form. If set to 'off', there will be no file form field on the create
+# image form. See documentation for deployment considerations.
+#HORIZON_IMAGES_UPLOAD_MODE = 'legacy'
+
 # OPENSTACK_ENDPOINT_TYPE specifies the endpoint type to use for the endpoints
 # in the Keystone service catalog. Use this setting when Horizon is running
 # external to the OpenStack environment. The default is 'publicURL'.
@@ -328,9 +440,9 @@ OPENSTACK_ENDPOINT_TYPE = "{{ primary_endpoint }}"
 # SECONDARY_ENDPOINT_TYPE specifies the fallback endpoint type to use in the
 # case that OPENSTACK_ENDPOINT_TYPE is not present in the endpoints
 # in the Keystone service catalog. Use this setting when Horizon is running
-# external to the OpenStack environment. The default is None.  This
+# external to the OpenStack environment. The default is None. This
 # value should differ from OPENSTACK_ENDPOINT_TYPE if used.
-#SECONDARY_ENDPOINT_TYPE = "publicURL"
+#SECONDARY_ENDPOINT_TYPE = None
 {% if secondary_endpoint -%}
 SECONDARY_ENDPOINT_TYPE = "{{ secondary_endpoint }}"
 {% endif -%}
@@ -394,16 +506,20 @@ TIME_ZONE = "UTC"
 # policy.v3cloudsample.json
 # Having matching policy files on the Horizon and Keystone servers is essential
 # for normal operation. This holds true for all services and their policy files.
-#POLICY_FILES = {
-#    'identity': 'keystone_policy.json',
-#    'compute': 'nova_policy.json',
-#    'volume': 'cinder_policy.json',
-#    'image': 'glance_policy.json',
-#    'orchestration': 'heat_policy.json',
-#    'network': 'neutron_policy.json',
-#    'telemetry': 'ceilometer_policy.json',
-#}
+{% if api_version == "3" -%}
+POLICY_FILES = {
+    'identity': 'keystonev3_policy.json',
+    'compute': 'nova_policy.json',
+    'volume': 'cinder_policy.json',
+    'image': 'glance_policy.json',
+    'orchestration': 'heat_policy.json',
+    'network': 'neutron_policy.json',
+}
+{% endif -%}
 
+# TODO: (david-lyle) remove when plugins support adding settings.
+# Note: Only used when trove-dashboard plugin is configured to be used by
+# Horizon.
 # Trove user and database extension support. By default support for
 # creating users and databases on database instances is turned on.
 # To disable these extensions set the permission here to something
@@ -411,9 +527,13 @@ TIME_ZONE = "UTC"
 #TROVE_ADD_USER_PERMS = []
 #TROVE_ADD_DATABASE_PERMS = []
 
-# Change this patch to the appropriate static directory containing
-# two files: _variables.scss and _styles.scss
-#CUSTOM_THEME_PATH = 'themes/default'
+# Change this patch to the appropriate list of tuples containing
+# a key, label and static directory containing two files:
+# _variables.scss and _styles.scss
+#AVAILABLE_THEMES = [
+#    ('default', 'Default', 'themes/default'),
+#    ('material', 'Material', 'themes/material'),
+#]
 
 LOGGING = {
     'version': 1,
@@ -422,15 +542,27 @@ LOGGING = {
     # if nothing is specified here and disable_existing_loggers is True,
     # django.db.backends will still log unless it is disabled explicitly.
     'disable_existing_loggers': False,
+    'formatters': {
+        'operation': {
+            # The format of "%(message)s" is defined by
+            # OPERATION_LOG_OPTIONS['format']
+            'format': '%(asctime)s %(message)s'
+        },
+    },
     'handlers': {
         'null': {
             'level': 'DEBUG',
-            'class': 'django.utils.log.NullHandler',
+            'class': 'logging.NullHandler',
         },
         'console': {
             # Set the level to "DEBUG" for verbose output logging.
             'level': 'INFO',
             'class': 'logging.StreamHandler',
+        },
+        'operation': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'operation',
         },
         {% if use_syslog %}
         'syslog': {
@@ -531,15 +663,6 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
-        'troveclient': {
-            {% if use_syslog %}
-            'handlers': ['syslog'],
-            {% else %}
-            'handlers': ['console'],
-            {% endif %}
-            'level': 'DEBUG',
-            'propagate': False,
-        },
         'swiftclient': {
             {% if use_syslog %}
             'handlers': ['syslog'],
@@ -584,7 +707,7 @@ LOGGING = {
             'handlers': ['null'],
             'propagate': False,
         },
-    }
+    },
 }
 
 # 'direction' should not be specified for all_tcp/udp/icmp.
@@ -708,6 +831,9 @@ SECURITY_GROUP_RULES = {
 #
 # See Metadata Definitions on: http://docs.openstack.org/developer/glance/
 
+# TODO: (david-lyle) remove when plugins support settings natively
+# Note: This is only used when the Sahara plugin is configured and enabled
+# for use in Horizon.
 # Indicate to the Sahara data processing service whether or not
 # automatic floating IP allocation is in effect.  If it is not
 # in effect, the user will be prompted to choose a floating IP
@@ -722,12 +848,6 @@ SECURITY_GROUP_RULES = {
 # algorithms supported by Python's hashlib library.
 #OPENSTACK_TOKEN_HASH_ALGORITHM = 'md5'
 
-# Hashing tokens from Keystone keeps the Horizon session data smaller, but it
-# doesn't work in some cases when using PKI tokens.  Uncomment this value and
-# set it to False if using PKI tokens and there are 401 errors due to token
-# hashing.
-#OPENSTACK_TOKEN_HASH_ENABLED = True
-
 # AngularJS requires some settings to be made available to
 # the client side. Some settings are required by in-tree / built-in horizon
 # features. These settings must be added to REST_API_REQUIRED_SETTINGS in the
@@ -740,7 +860,9 @@ SECURITY_GROUP_RULES = {
 # the enabled panel configuration.
 # You should not add settings to this list for out of tree extensions.
 # See: https://wiki.openstack.org/wiki/Horizon/RESTAPI
-REST_API_REQUIRED_SETTINGS = ['OPENSTACK_HYPERVISOR_FEATURES']
+REST_API_REQUIRED_SETTINGS = ['OPENSTACK_HYPERVISOR_FEATURES',
+                              'LAUNCH_INSTANCE_DEFAULTS',
+                              'OPENSTACK_IMAGE_FORMATS']
 
 # Additional settings can be made available to the client side for
 # extensibility by specifying them in REST_API_ADDITIONAL_SETTINGS
@@ -755,15 +877,27 @@ REST_API_REQUIRED_SETTINGS = ['OPENSTACK_HYPERVISOR_FEATURES']
 
 {% if ubuntu_theme %}
 # Enable the Ubuntu theme if it is present.
-try:
-  from ubuntu_theme import *
-except ImportError:
-  pass
+DEFAULT_THEME = 'ubuntu'
 {% elif default_theme %}
-CUSTOM_THEME_PATH = 'themes/{{ default_theme }}'
+try:
+  AVAILABLE_THEMES
+except NameError:
+  try:
+    from openstack_dashboard.settings import AVAILABLE_THEMES
+  except ImportError:
+    AVAILABLE_THEMES = []
+    pass
+if '{{ default_theme }}' not in [el[0] for el in AVAILABLE_THEMES]:
+  AVAILABLE_THEMES += [
+      ('{{ default_theme }}', '{{ default_theme }}',
+       'themes/{{ default_theme }}'),
+  ]
+DEFAULT_THEME = '{{ default_theme }}'
 {% endif %}
 
-# Default Ubuntu apache configuration uses /horizon as the application root.
+WEBROOT = '{{ webroot }}'
+STATIC_URL = '/static/'
+
 {% if webroot == "/" %}
 LOGIN_URL='/auth/login/'
 LOGOUT_URL='/auth/logout/'
@@ -773,13 +907,10 @@ LOGOUT_URL='{{ webroot }}/auth/logout/'
 {% endif %}
 LOGIN_REDIRECT_URL='{{ webroot }}'
 
-
 # By default, validation of the HTTP Host header is disabled.  Production
 # installations should have this set accordingly.  For more information
 # see https://docs.djangoproject.com/en/dev/ref/settings/.
 ALLOWED_HOSTS = '*'
-
-{{ settings|join('\n\n') }}
 
 # Compress all assets offline as part of packaging installation
 #COMPRESS_OFFLINE = True
@@ -791,3 +922,63 @@ ALLOWED_HOSTS = '*'
 # For more information see:
 # http://tinyurl.com/anticlickjack
 #DISALLOW_IFRAME_EMBED = True
+
+# Help URL can be made available for the client. To provide a help URL, edit the
+# following attribute to the URL of your choice.
+#HORIZON_CONFIG["help_url"] = "http://openstack.mycompany.org"
+
+# Settings for OperationLogMiddleware
+# OPERATION_LOG_ENABLED is flag to use the function to log an operation on
+# Horizon.
+# mask_targets is arrangement for appointing a target to mask.
+# method_targets is arrangement of HTTP method to output log.
+# format is the log contents.
+#OPERATION_LOG_ENABLED = False
+#OPERATION_LOG_OPTIONS = {
+#    'mask_fields': ['password'],
+#    'target_methods': ['POST'],
+#    'format': ("[%(domain_name)s] [%(domain_id)s] [%(project_name)s]"
+#        " [%(project_id)s] [%(user_name)s] [%(user_id)s] [%(request_scheme)s]"
+#        " [%(referer_url)s] [%(request_url)s] [%(message)s] [%(method)s]"
+#        " [%(http_status)s] [%(param)s]"),
+#}
+
+# The default date range in the Overview panel meters - either <today> minus N
+# days (if the value is integer N), or from the beginning of the current month
+# until today (if set to None). This setting should be used to limit the amount
+# of data fetched by default when rendering the Overview panel.
+#OVERVIEW_DAYS_RANGE = 1
+
+# To allow operators to require admin users provide a search criteria first
+# before loading any data into the admin views, set the following attribute to
+# True
+#ADMIN_FILTER_DATA_FIRST=False
+
+# Dict used to restrict user private subnet cidr range.
+# An empty list means that user input will not be restricted
+# for a corresponding IP version. By default, there is
+# no restriction for IPv4 or IPv6. To restrict
+# user private subnet cidr range set ALLOWED_PRIVATE_SUBNET_CIDR
+# to something like
+#ALLOWED_PRIVATE_SUBNET_CIDR = {
+#    'ipv4': ['10.0.0.0/8', '192.168.0.0/16'],
+#    'ipv6': ['fc00::/7']
+#}
+ALLOWED_PRIVATE_SUBNET_CIDR = {'ipv4': [], 'ipv6': []}
+
+# Project and user can have any attributes by keystone v3 mechanism.
+# This settings can treat these attributes on Horizon.
+# It means, when you show Create/Update modal, attribute below is
+# shown and you can specify any value.
+# If you'd like to display these extra data in project or user index table,
+# Keystone v3 allows you to add extra properties to Project and Users.
+# Horizon's customization (http://docs.openstack.org/developer/horizon/topics/customizing.html#horizon-customization-module-overrides)
+# allows you to display this extra information in the Create/Update modal and
+# the corresponding tables.
+#PROJECT_TABLE_EXTRA_INFO = {
+#   'phone_num': _('Phone Number'),
+#}
+#USER_TABLE_EXTRA_INFO = {
+#   'phone_num': _('Phone Number'),
+#}
+{{ settings|join('\n\n') }}

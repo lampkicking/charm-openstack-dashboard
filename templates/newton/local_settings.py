@@ -45,6 +45,11 @@ WEBROOT = '/'
 # settings to better secure the cookies from security exploits
 #CSRF_COOKIE_SECURE = True
 #SESSION_COOKIE_SECURE = True
+{% if ssl_configured %}
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+{% endif %}
+
 
 # The absolute path to the directory where message files are collected.
 # The message file must have a .json file extension. When the user logins to
@@ -193,8 +198,8 @@ OPENSTACK_KEYSTONE_DEFAULT_ROLE = "{{ default_role }}"
 {% if api_version == "3" -%}
 OPENSTACK_KEYSTONE_URL = "{{ service_protocol }}://%s:{{ service_port }}/v3" % OPENSTACK_HOST
 OPENSTACK_API_VERSIONS = { "identity": 3, }
-OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT = True
-OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = "{{ admin_domain_id }}"
+OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT = "{{ multi_domain }}"
+OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = "{{ default_domain or admin_domain_id }}"
 {% else -%}
 OPENSTACK_KEYSTONE_URL = "{{ service_protocol }}://%s:{{ service_port }}/v2.0" % OPENSTACK_HOST
 {% endif -%}
@@ -555,11 +560,15 @@ LOGGING = {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
         },
-        {% if use_syslog %}
         'operation': {
             'level': 'INFO',
-            'class': 'logging.handlers.SysLogHandler',
+            'class': 'logging.StreamHandler',
             'formatter': 'operation',
+        },
+        {% if use_syslog %}
+        'syslog': {
+            'level': 'INFO',
+            'class': 'logging.handlers.SysLogHandler',
         },
         {% endif %}
     },

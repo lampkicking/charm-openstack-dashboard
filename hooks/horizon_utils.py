@@ -41,6 +41,7 @@ from charmhelpers.contrib.openstack.utils import (
     is_unit_paused_set,
     os_application_version_set,
     CompareOpenStackReleases,
+    reset_os_release,
 )
 from charmhelpers.contrib.python.packages import (
     pip_install,
@@ -131,7 +132,8 @@ CONFIG_FILES = OrderedDict([
         'hook_contexts': [horizon_contexts.HorizonContext(),
                           horizon_contexts.IdentityServiceContext(),
                           context.SyslogContext(),
-                          horizon_contexts.LocalSettingsContext()],
+                          horizon_contexts.LocalSettingsContext(),
+                          horizon_contexts.ApacheSSLContext()],
         'services': ['apache2', 'memcached']
     }),
     (APACHE_CONF, {
@@ -262,6 +264,8 @@ def enable_ssl():
     ''' Enable SSL support in local apache2 instance '''
     subprocess.call(['a2ensite', 'default-ssl'])
     subprocess.call(['a2enmod', 'ssl'])
+    subprocess.call(['a2enmod', 'rewrite'])
+    subprocess.call(['a2enmod', 'headers'])
 
 
 def determine_packages():
@@ -304,6 +308,8 @@ def do_openstack_upgrade(configs):
     ]
     apt_update(fatal=True)
     apt_upgrade(options=dpkg_opts, fatal=True, dist=True)
+    reset_os_release()
+    apt_install(determine_packages(), fatal=True)
 
     # set CONFIGS to load templates from new release
     configs.set_release(openstack_release=new_os_rel)
