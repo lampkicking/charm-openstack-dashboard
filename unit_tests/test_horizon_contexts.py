@@ -64,7 +64,8 @@ class TestHorizonContexts(CharmTestCase):
         self.assertEqual(horizon_contexts.ApacheContext()(),
                          {'http_port': 70, 'https_port': 433,
                           'enforce_ssl': False,
-                          'hsts_max_age_seconds': 0})
+                          'hsts_max_age_seconds': 0,
+                          'custom_theme': False})
 
     def test_Apachecontext_enforce_ssl(self):
         self.test_config.set('enforce-ssl', True)
@@ -72,7 +73,8 @@ class TestHorizonContexts(CharmTestCase):
         self.assertEquals(horizon_contexts.ApacheContext()(),
                           {'http_port': 70, 'https_port': 433,
                            'enforce_ssl': True,
-                           'hsts_max_age_seconds': 0})
+                           'hsts_max_age_seconds': 0,
+                           'custom_theme': False})
 
     def test_Apachecontext_enforce_ssl_no_cert(self):
         self.test_config.set('enforce-ssl', True)
@@ -80,7 +82,8 @@ class TestHorizonContexts(CharmTestCase):
         self.assertEquals(horizon_contexts.ApacheContext()(),
                           {'http_port': 70, 'https_port': 433,
                            'enforce_ssl': False,
-                           'hsts_max_age_seconds': 0})
+                           'hsts_max_age_seconds': 0,
+                           'custom_theme': False})
 
     def test_Apachecontext_hsts_max_age_seconds(self):
         self.test_config.set('enforce-ssl', True)
@@ -89,7 +92,8 @@ class TestHorizonContexts(CharmTestCase):
         self.assertEquals(horizon_contexts.ApacheContext()(),
                           {'http_port': 70, 'https_port': 433,
                            'enforce_ssl': True,
-                           'hsts_max_age_seconds': 15768000})
+                           'hsts_max_age_seconds': 15768000,
+                           'custom_theme': False})
 
     @patch.object(horizon_contexts, 'get_ca_cert', lambda: None)
     @patch('os.chmod')
@@ -125,6 +129,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -151,6 +156,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -177,6 +183,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -203,6 +210,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': False,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -230,6 +238,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': False,
                           'default_theme': 'material',
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -260,6 +269,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -286,6 +296,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'foo', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -312,6 +323,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -343,6 +355,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": True,
@@ -369,6 +382,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -395,6 +409,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -422,6 +437,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -449,6 +465,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
@@ -476,6 +493,7 @@ class TestHorizonContexts(CharmTestCase):
                           'default_role': 'Member', 'webroot': '/horizon',
                           'ubuntu_theme': True,
                           'default_theme': None,
+                          'custom_theme': False,
                           'secret': 'secret',
                           'support_profile': None,
                           "neutron_network_dvr": False,
